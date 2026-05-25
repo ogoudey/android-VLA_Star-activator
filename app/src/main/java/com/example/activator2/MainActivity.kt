@@ -20,8 +20,14 @@ import net.schmizz.sshj.connection.channel.direct.LocalPortForwarder
 import net.schmizz.sshj.connection.channel.direct.Parameters
 import java.net.ServerSocket
 import java.security.Security
-
-class MainActivity : AppCompatActivity() {
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import androidx.appcompat.app.AlertDialog
+import android.content.Intent
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
+class MainActivity : BaseActivity() {
 
     // UI
     private lateinit var btnConnect: Button
@@ -32,7 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var scrollView: ScrollView
 
     // SSH / Socket state
-    private var sshClient: SSHClient? = null
+    private lateinit var sshManager: SshManager
+
     private var chatSocket: Socket? = null
     private var chatOutputStream: java.io.OutputStream? = null
     private var chatReader: BufferedReader? = null
@@ -54,6 +61,11 @@ class MainActivity : AppCompatActivity() {
 
         btnConnect.setOnClickListener { onConnectClicked() }
         btnSend.setOnClickListener { onSendClicked() }
+
+        setupSpinner(currentIndex = 0)
+
+        sshManager = SshManager(this)
+
     }
 
     // ─── PHASE 1: Connect ────────────────────────────────────────────────────
@@ -64,15 +76,20 @@ class MainActivity : AppCompatActivity() {
 
         scope.launch {
             try {
-                val (username, hostname, ip) = withContext(Dispatchers.IO) { discoverHost() }
+                val (username, hostname, ip) = sshManager.discoverHost()
                 appendOutput("Found host: $username@$hostname ($ip)")
                 appendOutput("Connecting via SSH...")
 
-                val password = findViewById<EditText>(R.id.etPassword).text.toString()
-                withContext(Dispatchers.IO) { setupSsh(ip, username, password) }
-                appendOutput("SSH connected. Launching agent...")
+                withContext(Dispatchers.IO) {
+                    sshManager.setupSsh(ip, username, etPassword.text.toString())
+                }
+                appendOutput("SSH connected.")
 
-                withContext(Dispatchers.IO) { launchAgentAndForward() }
+                val agentName = sshManager.fetchAndSelectAgent()
+
+                appendOutput("Launching $agentName...")
+
+                withContext(Dispatchers.IO) { launchAgentAndForward(agentName) }
                 appendOutput("Agent running. Opening chat socket...")
 
                 withContext(Dispatchers.IO) { openChatSocket() }
@@ -80,85 +97,49 @@ class MainActivity : AppCompatActivity() {
                 appendOutput("Ready.\n")
 
                 btnSend.isEnabled = true
-
+                btnConnect.text = "Disconnect"
+                btnConnect.setOnClickListener { onDisconnectClicked() }
+                btnConnect.isEnabled = true
             } catch (e: Exception) {
-                appendOutput("Error: ${e.message}")
+                appendOutput("Error: ${e::class.simpleName}: ${e.message}")
+                e.printStackTrace()
                 btnConnect.isEnabled = true
             }
         }
     }
+    private fun onDisconnectClicked() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                chatSocket?.close()
+                sshManager.disconnect()
+            } catch (e: Exception) {
+                // ignore errors on close
+            } finally {
+                chatSocket = null
+                chatOutputStream = null
+                chatReader = null
 
-    private fun discoverHost(): Triple<String, String, String> {
-        // returns Triple(username, hostname, ipAddress)
-        val wifi = applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager
-        val lock = wifi.createMulticastLock("jmDNS")
-        lock.acquire()
-
-        val wifiIp = java.net.InetAddress.getByName(
-            android.text.format.Formatter.formatIpAddress(wifi.connectionInfo.ipAddress)
-        )
-
-        var result: Triple<String, String, String>? = null
-
-        try {
-            val jmdns = JmDNS.create(wifiIp)
-
-            jmdns.addServiceListener("_bed._tcp.local.", object : ServiceListener {
-                override fun serviceAdded(event: ServiceEvent) {
-                    jmdns.requestServiceInfo(event.type, event.name)
+                withContext(Dispatchers.Main) {
+                    appendOutput("Disconnected.\n")
+                    btnConnect.text = "Find Host & Connect"
+                    btnConnect.isEnabled = true
+                    btnConnect.setOnClickListener { onConnectClicked() }
+                    btnSend.isEnabled = false
                 }
-
-                override fun serviceRemoved(event: ServiceEvent) {}
-
-                override fun serviceResolved(event: ServiceEvent) {
-                    val info = event.info
-                    val username = info.getPropertyString("username") ?: return
-                    val hostname = info.server
-                    val ip = info.inetAddresses
-                        .filterIsInstance<java.net.Inet4Address>()
-                        .firstOrNull()?.hostAddress ?: return
-
-                    result = Triple(username, hostname, ip)
-                }
-            })
-
-            // Poll until found (mirrors your bash `while true; sleep 1`)
-            val timeout = System.currentTimeMillis() + 15_000
-            while (result == null && System.currentTimeMillis() < timeout) {
-                Thread.sleep(500)
             }
-
-            jmdns.close()
-        } finally {
-            lock.release()
-        }
-
-        return result ?: throw Exception("No _bed._tcp host found :(")
-    }
-
-    private fun setupSsh(hostIp: String, username: String, password: String) {
-        Security.removeProvider("BC")
-        Security.addProvider(org.bouncycastle.jce.provider.BouncyCastleProvider())
-
-        sshClient = SSHClient().apply {
-            addHostKeyVerifier(PromiscuousVerifier())
-            useCompression()
-            connect(hostIp)
-            authPassword(username, password)
-            connection.keepAlive.keepAliveInterval = 60
         }
     }
 
+    private fun launchAgentAndForward(agentName: String) {
+        val session = sshManager.sshClient!!.startSession()
 
 
-    private fun launchAgentAndForward() {
         // Step 1: Launch the agent script
-        val session = sshClient!!.startSession()
-        session.exec("bash \"\$VLA_STAR_PATH\"/run_commands/host/run_minimal_vla_star.sh")
+        session.exec("bash \"\$VLA_STAR_PATH\"/run_commands/host/run_minimal_vla_star.sh \"$agentName\"")
 
         val deadline = System.currentTimeMillis() + 15000
         while (System.currentTimeMillis() < deadline) {
-            val checkSession = sshClient!!.startSession()
+            val checkSession = sshManager.sshClient!!.startSession()
             val check = checkSession.exec("ss -tlnp | grep 5001")
             check.join()
             val output = check.inputStream.bufferedReader().readText()
@@ -178,7 +159,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             try {
                 runOnUiThread { appendOutput("DEBUG: forwarder thread started") }
-                sshClient!!.newLocalPortForwarder(params, serverSocket).listen()
+                sshManager.sshClient!!.newLocalPortForwarder(params, serverSocket).listen()
                 runOnUiThread { appendOutput("DEBUG: forwarder listen() exited") }
             } catch (e: Exception) {
                 runOnUiThread { appendOutput("DEBUG: forwarder error: ${e.javaClass.simpleName}: ${e.message}") }
@@ -251,6 +232,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         scope.cancel()
         chatSocket?.close()
-        sshClient?.close()
+        sshManager.sshClient?.close()
     }
 }
