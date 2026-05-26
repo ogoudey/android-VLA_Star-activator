@@ -48,6 +48,32 @@
 
     </LinearLayout>
 
+    <!-- TERMINAL OUTPUT -->
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#2B2B2B"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tvOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="#F8F8F2"
+            android:textSize="13sp"
+            android:text="Not connected.\n"/>
+
+    </ScrollView>
+
+    <!-- HIDDEN CAMERA VIEW FOR ARCORE -->
+    <SurfaceView
+        android:id="@+id/arSurface"
+        android:layout_width="1px"
+        android:layout_height="1px"
+        android:visibility="gone"/>
 
     <!-- CONNECT BUTTON -->
     <Button

@@ -4,10 +4,10 @@ import android.content.Intent
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Spinner
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 abstract class BaseActivity : AppCompatActivity() {
-
     companion object {
         val PAGES = listOf("Chat", "Web", "Modules")
     }
