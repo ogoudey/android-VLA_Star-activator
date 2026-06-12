@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 
 abstract class BaseActivity : AppCompatActivity() {
     companion object {
-        val PAGES = listOf("Chat", "Web", "Modules")
+        val PAGES = listOf("Activate!", "VLANet", "Modules (Coming soon)")
     }
 
     fun setupSpinner(currentIndex: Int) {

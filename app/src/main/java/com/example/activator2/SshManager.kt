@@ -123,7 +123,7 @@ class SshManager(private val context: Context) {
         return suspendCoroutine { continuation ->
             activity.runOnUiThread {
                 AlertDialog.Builder(context)
-                    .setTitle("Select Agent")
+                    .setTitle("Select VLA*")
                     .setItems(names.toTypedArray()) { _, index ->
                         continuation.resume(names[index])
                     }

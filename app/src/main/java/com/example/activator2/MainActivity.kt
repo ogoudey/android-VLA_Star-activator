@@ -72,29 +72,30 @@ class MainActivity : BaseActivity() {
 
     private fun onConnectClicked() {
         btnConnect.isEnabled = false
-        appendOutput("Scanning for host...")
+        appendOutput("Scanning for hosts...")
 
         scope.launch {
             try {
                 val (username, hostname, ip) = sshManager.discoverHost()
-                appendOutput("Found host: $username@$hostname ($ip)")
-                appendOutput("Connecting via SSH...")
+                //appendOutput("Found host: $username@$hostname ($ip)")
+                //appendOutput("Connecting via SSH...")
 
                 withContext(Dispatchers.IO) {
                     sshManager.setupSsh(ip, username, etPassword.text.toString())
                 }
-                appendOutput("SSH connected.")
+                appendOutput("Connected.")
 
                 val agentName = sshManager.fetchAndSelectAgent()
 
-                appendOutput("Launching $agentName...")
+                appendOutput("Activating $agentName...")
 
                 withContext(Dispatchers.IO) { launchAgentAndForward(agentName) }
-                appendOutput("Agent running. Opening chat socket...")
+                //appendOutput("Agent running. Opening chat socket...")
 
                 withContext(Dispatchers.IO) { openChatSocket() }
                 startChatReadLoop()
-                appendOutput("Ready.\n")
+                appendOutput("$agentName is activated!")
+                //appendOutput("Ready.\n")
 
                 btnSend.isEnabled = true
                 btnConnect.text = "Disconnect"
@@ -121,7 +122,7 @@ class MainActivity : BaseActivity() {
 
                 withContext(Dispatchers.Main) {
                     appendOutput("Disconnected.\n")
-                    btnConnect.text = "Find Host & Connect"
+                    btnConnect.text = "Find Host & Activate a VLA*"
                     btnConnect.isEnabled = true
                     btnConnect.setOnClickListener { onConnectClicked() }
                     btnSend.isEnabled = false
@@ -135,7 +136,7 @@ class MainActivity : BaseActivity() {
 
 
         // Step 1: Launch the agent script
-        session.exec("bash \"\$VLA_STAR_PATH\"/run_commands/host/run_minimal_vla_star.sh \"$agentName\"")
+        session.exec("bash \"\$VLA_STAR_PATH\"/activation/targets/activate_vla_star_v1.sh \"$agentName\"")
 
         val deadline = System.currentTimeMillis() + 15000
         while (System.currentTimeMillis() < deadline) {
@@ -145,7 +146,7 @@ class MainActivity : BaseActivity() {
             val output = check.inputStream.bufferedReader().readText()
             checkSession.close()
             if (output.contains("5001")) {
-                runOnUiThread { appendOutput("Agent port is up.") }
+                //runOnUiThread { appendOutput("Agent port is up.") }
                 break
             }
             Thread.sleep(1000)
@@ -158,9 +159,7 @@ class MainActivity : BaseActivity() {
 
         Thread {
             try {
-                runOnUiThread { appendOutput("DEBUG: forwarder thread started") }
                 sshManager.sshClient!!.newLocalPortForwarder(params, serverSocket).listen()
-                runOnUiThread { appendOutput("DEBUG: forwarder listen() exited") }
             } catch (e: Exception) {
                 runOnUiThread { appendOutput("DEBUG: forwarder error: ${e.javaClass.simpleName}: ${e.message}") }
             }
@@ -171,13 +170,9 @@ class MainActivity : BaseActivity() {
     }
 
     private fun openChatSocket() {
-        runOnUiThread { appendOutput("DEBUG: opening chat socket...") }
-
         chatSocket = Socket("127.0.0.1", 5001)
         chatOutputStream = chatSocket!!.getOutputStream()
-        runOnUiThread { appendOutput("DEBUG: chat socket connected") }
         chatReader = BufferedReader(InputStreamReader(chatSocket!!.getInputStream()))
-        runOnUiThread { appendOutput("DEBUG: reader/writer ready") }
     }
 
     private fun startChatReadLoop() {

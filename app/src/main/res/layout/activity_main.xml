@@ -27,14 +27,14 @@
         android:background="#2B2B2B"
         android:padding="8dp">
 
-    <TextView
-        android:id="@+id/tvOutput"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fontFamily="monospace"
-        android:textColor="#F8F8F2"
-        android:textSize="13sp"
-        android:text="Not connected.\n"/>
+        <TextView
+            android:id="@+id/tvOutput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:text="Welcome to the VLANet!\n\nWith this app, you can activate any VLA*s in your local network.\n\nUse the VLANet to see how to activate and interact with VLA*s.\n\nUse the modules to take control of components of a VLA* (WIP).\n\nThis app is on Github at https://github.com/ogoudey/android-VLA_Star-activator. For all inquiries email olin.goog@gmail.com.\n\nHelp ground agents in useful, relevant, and actual space!"
+            android:textColor="#F8F8F2"
+            android:textSize="13sp" />
 
     </ScrollView>
 
@@ -73,16 +73,16 @@
         android:id="@+id/btnConnect"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Find Host &amp; Connect"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="12dp"
+        android:text="Find Host &amp; Activate a VLA*" />
 
     <!-- CONNECTION PASSWORD -->
     <EditText
         android:id="@+id/etPassword"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="SSH Password"
-        android:inputType="textPassword"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="12dp"
+        android:hint="Host Password"
+        android:inputType="textPassword" />
 
 </LinearLayout>

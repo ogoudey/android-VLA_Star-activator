@@ -166,7 +166,7 @@ class ModulesActivity : BaseActivity() {
         Thread {
             try {
                 sshManager.sshClient!!.newLocalPortForwarder(params, serverSocket).listen()
-                runOnUiThread { appendOutput("DEBUG: forwarder listen() exited") }
+                //runOnUiThread { appendOutput("DEBUG: forwarder listen() exited") }
             } catch (e: Exception) {
                 // Nothing...
             }
@@ -178,14 +178,14 @@ class ModulesActivity : BaseActivity() {
 
     private fun openModuleSocket() {
         val modulePort = modulesToPorts.getOrDefault(selectedModule, -1)
-        runOnUiThread { appendOutput("DEBUG: opening moduleSocket socket...") }
+        //runOnUiThread { appendOutput("DEBUG: opening moduleSocket socket...") }
 
         moduleSocket = Socket().apply {
             tcpNoDelay = true                          // ← Critical for low latency
             connect(InetSocketAddress("127.0.0.1", modulePort))
         }
         moduleSocketOutputStream = DataOutputStream(moduleSocket!!.getOutputStream())
-        runOnUiThread { appendOutput("DEBUG: moduleSocket socket connected") }
+        //runOnUiThread { appendOutput("DEBUG: moduleSocket socket connected") }
     }
     private fun appendOutput(text: String) {
         tvOutput.append("$text\n")
